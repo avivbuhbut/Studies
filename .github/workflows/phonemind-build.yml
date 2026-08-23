@@ -1,6 +1,8 @@
 name: PhoneMind APK Build
 
 on:
+  pull_request:
+    branches: [master]
   push:
     branches: [phonemind-build-20260823]
 
