@@ -1,0 +1,60 @@
+name: PhoneMind APK Build
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [phonemind-build-20260823]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - name: Reassemble and verify project
+        run: |
+          cat phonemind_chunks/chunk_* > PhoneMindAndroid_MVP.zip
+          echo '4a4d8b6e6e31dd03d516df8ce3c085cee6955a99191d6ca20e5b8c7ea7cada05  PhoneMindAndroid_MVP.zip' | sha256sum -c -
+          unzip -t PhoneMindAndroid_MVP.zip
+          unzip -q PhoneMindAndroid_MVP.zip
+      - name: Build full release APK
+        working-directory: PhoneMindAndroid
+        run: |
+          gradle --no-daemon clean :app:assembleRelease
+          keytool -genkeypair -v -keystore phonemind-release.jks -storepass PhoneMindBuild2026 -keypass PhoneMindBuild2026 -alias phonemind -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=PhoneMind,O=PhoneMind,C=IL'
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk PhoneMind-Full-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks phonemind-release.jks --ks-pass pass:PhoneMindBuild2026 --key-pass pass:PhoneMindBuild2026 --out PhoneMind-Full-release.apk PhoneMind-Full-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs PhoneMind-Full-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions PhoneMind-Full-release.apk
+      - name: Build safe-open release APK
+        working-directory: PhoneMindAndroid
+        run: |
+          sed -i '/android.permission.READ_SMS/d;/android.permission.SEND_SMS/d;/android.permission.MANAGE_EXTERNAL_STORAGE/d' app/src/main/AndroidManifest.xml
+          gradle --no-daemon clean :app:assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk PhoneMind-Safe-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks phonemind-release.jks --ks-pass pass:PhoneMindBuild2026 --key-pass pass:PhoneMindBuild2026 --out PhoneMind-Safe-release.apk PhoneMind-Safe-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs PhoneMind-Safe-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions PhoneMind-Safe-release.apk
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneMind-APKs
+          path: |
+            PhoneMindAndroid/PhoneMind-Full-release.apk
+            PhoneMindAndroid/PhoneMind-Safe-release.apk
+          if-no-files-found: error
