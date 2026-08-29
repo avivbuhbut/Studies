@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">TwoFinger</string>
+    <string name="accessibility_description">Hold two fingers anywhere to open your personal quick-actions menu.</string>
+</resources>
