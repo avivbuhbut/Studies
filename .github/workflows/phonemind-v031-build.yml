@@ -33,9 +33,11 @@ jobs:
       - name: Apply reliability-only patch
         run: |
           python3 phonemind-v031-patch.py PhoneMindAndroid
+          python3 phonemind-v031-compile-hotfix.py
           grep -q 'versionName = "0.3.1"' PhoneMindAndroid/app/build.gradle.kts
           grep -q 'DriveBackupWorker' PhoneMindAndroid/app/src/main/java/com/aviv/phonemind/MainActivity.kt
           grep -q 'FOREGROUND_SERVICE_DATA_SYNC' PhoneMindAndroid/app/src/main/AndroidManifest.xml
+          grep -q 'android.content.pm.ServiceInfo' PhoneMindAndroid/app/src/main/java/com/aviv/phonemind/DriveBackupWorker.kt
       - name: Compile and verify release APK
         run: |
           set -euo pipefail
