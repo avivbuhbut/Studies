@@ -1,0 +1,65 @@
+name: PhoneMind v0.3 Polished APK Build
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+      - name: Reassemble and verify source
+        run: |
+          cat phonemind_v030_chunks/chunk_* > PhoneMindAndroid_v030.zip
+          echo '9271e6f1be1eddd508aeb5c4a1b7894fcf2823b999f0098f829d7e247fc47286  PhoneMindAndroid_v030.zip' | sha256sum -c -
+          unzip -t PhoneMindAndroid_v030.zip
+          unzip -q PhoneMindAndroid_v030.zip
+
+      - name: Compile release APK
+        run: |
+          set -euo pipefail
+          cd PhoneMindAndroid
+          gradle --no-daemon clean :app:assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            PhoneMind-v0.3.0-aligned-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 PhoneMind-v0.3.0-aligned-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging PhoneMind-v0.3.0-aligned-unsigned.apk | head -20 | tee build-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions PhoneMind-v0.3.0-aligned-unsigned.apk | tee permissions.txt
+          grep -q "package: name='com.aviv.phonemind'" build-info.txt
+          grep -q "android.permission.MANAGE_EXTERNAL_STORAGE" permissions.txt
+          ! grep -q "android.permission.READ_SMS" permissions.txt
+          ! grep -q "android.permission.SEND_SMS" permissions.txt
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" ./apksigner.jar
+
+      - name: Upload unsigned build tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneMind-v0.3.0-Unsigned
+          path: |
+            PhoneMindAndroid/PhoneMind-v0.3.0-aligned-unsigned.apk
+            PhoneMindAndroid/apksigner.jar
+            PhoneMindAndroid/build-info.txt
+            PhoneMindAndroid/permissions.txt
+          if-no-files-found: error

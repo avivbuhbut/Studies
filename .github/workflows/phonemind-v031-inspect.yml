@@ -1,0 +1,35 @@
+name: PhoneMind v0.3.1 Source Inspect
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reassemble source
+        run: |
+          cat phonemind_v030_chunks/chunk_* > PhoneMindAndroid_v030.zip
+          echo '9271e6f1be1eddd508aeb5c4a1b7894fcf2823b999f0098f829d7e247fc47286  PhoneMindAndroid_v030.zip' | sha256sum -c -
+          unzip -q PhoneMindAndroid_v030.zip
+      - name: Inspect reliability paths
+        run: |
+          echo '=== FILE LIST ==='
+          find PhoneMindAndroid/app/src/main/java -type f | sort
+          echo '=== MANIFEST ==='
+          cat PhoneMindAndroid/app/src/main/AndroidManifest.xml
+          echo '=== BUILD GRADLE ==='
+          cat PhoneMindAndroid/app/build.gradle.kts
+          echo '=== DRIVE/DELETE REFERENCES ==='
+          grep -RniE 'Drive|drive|backup|delete|trash|copy|DocumentFile|ACTION_OPEN_DOCUMENT_TREE|persistableUri|launch\(' PhoneMindAndroid/app/src/main/java || true
+          echo '=== MAINACTIVITY ==='
+          cat PhoneMindAndroid/app/src/main/java/com/aviv/phonemind/MainActivity.kt
+          echo '=== STORAGE REPOSITORY ==='
+          cat PhoneMindAndroid/app/src/main/java/com/aviv/phonemind/StorageRepository.kt
+          echo '=== POSSIBLE DRIVE FILES ==='
+          for f in $(find PhoneMindAndroid/app/src/main/java -type f | grep -Ei 'drive|backup|upload|worker|repository'); do echo "----- $f -----"; cat "$f"; done
