@@ -116,16 +116,6 @@ class DriveBackupWorker(
         }
     }
 
-    override fun onStopped() {
-        super.onStopped()
-        val store = BackupStateStore(applicationContext)
-        if (store.isActive()) {
-            store.setLastMessage(
-                "Android עצר זמנית את התהליך — PhoneMind ימשיך אוטומטית"
-            )
-        }
-    }
-
     private fun foregroundInfo(progress: Int, message: String): ForegroundInfo {
         createChannel()
 
